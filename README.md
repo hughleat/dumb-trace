@@ -99,5 +99,16 @@ If that has `fish` and `badger` functions like above, then `foo-hist.txt` will h
  
 That file will be appended to, so if you run that command twice then `foo-hist.txt` will contain two copies of the histogram.
 
+### Compressing traces
+The traces may be very large. There are a couple of command line options to help (`-m`, `-n`), but they won't help very much.
+
+If the traces get out of hand then you can use named pipes. E.g.:
+
+    mkfifo trace.fifo                        # Make a named pipe
+    DUMB_TRACE_PATH=trace.fifo ./foo-trace & # Trace to the pipe (background)
+    cat trace.fifo | gzip -9 > trace.gz      # Zip to trace.gz
+    rm trace.fifo                            # Delete pipe (or reuse it next time)
+    gunzip -c trace.gz                       # Unzip the trace
+
 ## Warning
 This is not well tested and probably has lots of bugs. It is not well documented. I don't stand by it at all :-)
