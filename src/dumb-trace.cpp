@@ -23,8 +23,8 @@ static void close_trace() {
 }
 
 extern "C"
-void __dumb_trace(const char* msg, unsigned i) {
+void __dumb_trace(const char* msg, unsigned dd) {
     if (out_file) {
-        fprintf(out_file, "%s%u\n", msg, i);
+        fprintf(out_file, "%s%u\n", msg, dd);
     }
 }

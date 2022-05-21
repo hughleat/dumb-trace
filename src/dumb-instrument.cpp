@@ -70,7 +70,7 @@ public:
         auto &M = *F.getParent();
         auto &C = M.getContext();
 
-        // Get __dumb_trace(const char* msg, unsigned)
+        // Get __dumb_trace(const char* msg, unsigned bb)
         auto *VoidTy = Type::getVoidTy(C);
         auto *CharPtrTy = Type::getInt8PtrTy(C);
         auto *UnsignedTy = Type::getInt32Ty(C);
