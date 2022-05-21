@@ -31,7 +31,7 @@ static void close_hist() {
 }
 
 extern "C"
-void __dumb_trace(const char* msg, unsigned bb) {
-    std::string key = msg + std::to_string(bb);
+void __dumb_trace(const char* fid, unsigned bbid) {
+    std::string key = fid + std::string(":") + std::to_string(bbid);
     hist[key]++;
 }

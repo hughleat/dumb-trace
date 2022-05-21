@@ -23,9 +23,9 @@ Then you can test that it works:
 
 ## What does it do?
 ### `dumb-instrument`
-The main part of this project is a tool, called `dumb-instrument`, that adds instrumentation to LLVM bitcodes. It adds a call to `__debug_trace(const char *msg, unsigned bb)` to each basic block in the bitcode.
+The main part of this project is a tool, called `dumb-instrument`, that adds instrumentation to LLVM bitcodes. It adds a call to `__debug_trace(const char *fid, unsigned bbid)` to each basic block in the bitcode.
 
-The `msg` is a string made up from `[prefix.]<function-name>` and `bb` tells you which basic block in the function is executing.  The `prefix` is optional and only used if provided on the command line.
+The `fid` is a string made up from `<module-name>:<function-name>` and `bbid` tells you which basic block in the function is executing.
 
 
 In addition, there are two implementations of `__debug_trace` provided so that you can link them in to programs that have had instrumentation added. 
@@ -37,30 +37,29 @@ The tool has the following usage:
 Where the options are:
 
     -o=<filename> - Specify output filename (default stdout)
-    -p=<string>   - Prefix for messages
+    -m=<string>   - Module name override (for slightly reducing verbosity)
+    -n            - Use numbers for function names (for slightly reducing verbosity)
 
 The bitcode files can be either `.bc` or `.ll`.
 
 So, if you want to instrument `foo.c` to create `foo.o`, you might execute these commands:
 
     clang -c -emit-llvm -O3 foo.c # makes foo.bc
-    dumb-instrument foo.bc -o foo-instr.bc -p foo
+    dumb-instrument foo.bc -o foo-instr.bc
     clang -c foo-instr.bc -O3 foo.o
 
 You then need to link `foo.o` with an implementation of `__debug_trace`. 
 
 If `foo.c` has functions `fish` and `badger`, then you might get a sequence of calls to `__debug_trace` like:
 
-    __debug_trace("foo.fish", 0)
-    __debug_trace("foo.fish", 1)
-    __debug_trace("foo.fish", 1)
-    __debug_trace("foo.badger", 0)
-    __debug_trace("foo.fish", 2)
-
-The prefix (from the `-p` command line option) allows you to distinguish functions of the same name from different compilation units, in case you are instrumenting more than one file.
+    __debug_trace("foo.bc:fish", 0)
+    __debug_trace("foo.bc:fish", 1)
+    __debug_trace("foo.bc:fish", 1)
+    __debug_trace("foo.bc:badger", 0)
+    __debug_trace("foo.bc:fish", 2)
 
 ### `libdumb-trace.a`
-The first implementation of `__debug_trace`, `libdumb-trace.a`, prints `msg`+'.'+`i` to a file every time `__debug_trace` is called. The file can set by an environment variable `DUMB_TRACE_PATH`. If that isn't set, then it prints to the standard output.
+The first implementation of `__debug_trace`, `libdumb-trace.a`, prints `fid`+`:`+`bbid` to a file every time `__debug_trace` is called. The file can set by an environment variable `DUMB_TRACE_PATH`. If that isn't set, then it prints to the standard output.
 
 So, given `foo.o`, built like above, you could build the executable like this:
 
@@ -72,16 +71,16 @@ If you want to run it and have the trace recorded in `foo-trace.txt`, do this:
 
 If that has `fish` and `badger` functions like above, then `foo-trace.txt` will have this in it:
 
-    foo.fish.0
-    foo.fish.1
-    foo.fish.1
-    foo.badger.0
-    foo.fish.2
+    foo.bc:fish:0
+    foo.bc:fish:1
+    foo.bc:fish:1
+    foo.bc:badger:0
+    foo.bc:fish:2
  
 That file will be appended to, so if you run that command twice then `foo-trace.txt` will contain both traces.
 
 ### `libdumb-hist.a`
-The second implementation of `__debug_trace`, `libdumb-hist.a`, prints a histogram of all the `msg`+'.'+`i` from calls to `__debug_trace`. The file can set by an environment variable `DUMB_TRACE_PATH`. If that isn't set, then it prints to the standard output.
+The second implementation of `__debug_trace`, `libdumb-hist.a`, prints a histogram of all the `fid`+`:`+`bbid` from calls to `__debug_trace`. The file can set by an environment variable `DUMB_TRACE_PATH`. If that isn't set, then it prints to the standard output.
 
 So, given `foo.o`, built like above, you could build the executable like this:
 
@@ -93,10 +92,10 @@ If you want to run it and have the trace recorded in `foo-hist.txt`, do this:
 
 If that has `fish` and `badger` functions like above, then `foo-hist.txt` will have this in it:
 
-    foo.fish.0=1
-    foo.fish.1=2
-    foo.badger.0=1
-    foo.fish.2=1
+    foo.bc:fish:0=1
+    foo.bc:fish:1=2
+    foo.bc:badger:0=1
+    foo.bc:fish:2=1
  
 That file will be appended to, so if you run that command twice then `foo-hist.txt` will contain two copies of the histogram.
 

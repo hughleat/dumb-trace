@@ -42,12 +42,20 @@ cl::opt<std::string> OutputFilename(
     cl::init("-")
 );
 
-/// Prefix for the instrumentation messages
-cl::opt<std::string> Prefix(
-    "p", 
-    cl::desc("Prefix for messages"),
+/// Module name to use
+cl::opt<std::string> ModuleName(
+    "m", 
+    cl::desc("Module name override"),
     cl::init("")
 );
+
+/// Use numbers instead of function names
+cl::opt<bool> NumbersForFunctions(
+    "n", 
+    cl::desc("Use numbers instead of function names"),
+    cl::init(false)
+);
+
 
 
 namespace llvm {
@@ -56,17 +64,24 @@ namespace llvm {
 }
 
 // All the work is done here
-class DumbInstrument : public llvm::FunctionPass {
+class DumbInstrument : public llvm::ModulePass {
 public:
     static char ID;
-    DumbInstrument() : FunctionPass(ID) {}
+    DumbInstrument() : ModulePass(ID) {}
 
-    bool runOnFunction(llvm::Function &F) override {
-        // Only instrument definitions.
-        if (F.isDeclaration()) {
-            return false;
+    bool runOnModule(Module &M) override {
+        bool changed = false;
+        unsigned fid = 0;
+        for (auto &F: M) {
+            // Only instrument definitions.
+            if (!F.isDeclaration()) {
+                changed |= runOnFunction(F, fid++);
+            }            
         }
-        
+        return changed;
+    }
+
+    bool runOnFunction(Function &F, unsigned fid) {        
         auto &M = *F.getParent();
         auto &C = M.getContext();
 
@@ -77,19 +92,19 @@ public:
         static constexpr const char *Symbol__dumb_trace = "__dumb_trace";
         auto DumbTrace = M.getOrInsertFunction(Symbol__dumb_trace, VoidTy, CharPtrTy, UnsignedTy);
 
-        // Add a global for the msg
-        auto msg = (Prefix == "" ? "" : Prefix + ".") + F.getName() + ".";
+        // Add a global for the function id
+        auto MID = (ModuleName != "" ? ModuleName : M.getName());
+        auto FID = MID + ":" + (NumbersForFunctions ? std::to_string(fid) : F.getName());
         auto *IntTy = Type::getInt32Ty(C);
         auto *Zero = ConstantInt::getSigned(IntTy, 0);
-        auto *MsgData = ConstantDataArray::getString(C, msg.str(), true);
-        auto *MsgGlobal = new GlobalVariable(M, MsgData->getType(), true, GlobalValue::PrivateLinkage, MsgData);
-        auto *MsgAccess = ConstantExpr::getInBoundsGetElementPtr(MsgData->getType(), MsgGlobal, ArrayRef<Constant*>({Zero, Zero}));
+        auto *FIDData = ConstantDataArray::getString(C, FID.str(), true);
+        auto *FIDGlobal = new GlobalVariable(M, FIDData->getType(), true, GlobalValue::PrivateLinkage, FIDData);
+        auto *FIDAccess = ConstantExpr::getInBoundsGetElementPtr(FIDData->getType(), FIDGlobal, ArrayRef<Constant*>({Zero, Zero}));
         
-        unsigned i = 0;
+        unsigned bbid = 0;
         for (auto &BB: F) {
             IRBuilder<> Builder(&BB, BB.getFirstInsertionPt());
-            Builder.CreateCall(DumbTrace, {MsgAccess, ConstantInt::get(UnsignedTy, i, true)});
-            i++;
+            Builder.CreateCall(DumbTrace, {FIDAccess, ConstantInt::get(UnsignedTy, bbid++, true)});
         }
 
         return true;
