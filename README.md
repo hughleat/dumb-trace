@@ -11,9 +11,12 @@ Good tracers don't instrument every block, this does. Good tracers don't write s
 - `cmake ..`
 
 This should build:
+
 - `build/dumb-instrument`: a tool to stupidly instrument LLVM bitcode
 - `build/libdumb-trace.a`: an implementation of `__dumb_trace` that prints to a file or stdout every time it executes a basic block
 - `build/libdumb-hist.a`: an implementation of `__dumb_trace` that prints a basic block histogram to a file or stdout
+
+Then you can test that it works:
 
 - `cd ../test`
 - `make`
