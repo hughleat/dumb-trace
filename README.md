@@ -35,9 +35,9 @@ The tool has the following usage:
 
 Where the options are:
 
-  -b=<filename> - Block list filename (default stderr)
-  -i=<filename> - Include list file name (default none)
-  -o=<filename> - Specify output file name (default stdout)
+    -b=<filename> - Block list filename (default stderr)
+    -i=<filename> - Include list file name (default none)
+    -o=<filename> - Specify output file name (default stdout)
 
 The bitcode files can be either `.bc` or `.ll`.
 
@@ -114,7 +114,7 @@ That file will be appended to, so if you run that command twice then `foo-hist.t
 Note that this file will not contain zero counts.
 
 ### Compressing traces
-The traces may be very large.
+The traces may be very large.   
 
 If the traces get out of hand then you can use named pipes. E.g.:
 
