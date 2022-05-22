@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc liblib-dumb-trace.a CMakeFiles/lib-dumb-trace.dir/src/lib-dumb-trace.cpp.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib liblib-dumb-trace.a

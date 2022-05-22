@@ -1,8 +1,10 @@
 #include <iostream>
+#include <fstream>
 #include <algorithm>
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -29,7 +31,7 @@ using namespace llvm;
 /// Input LLVM module file name.
 cl::opt<std::string> InputFilename(
     cl::Positional, 
-    cl::desc("Specify input filename"),
+    cl::desc("Specify input file name"),
     cl::value_desc("filename"), 
     cl::init("-")
 );
@@ -37,26 +39,34 @@ cl::opt<std::string> InputFilename(
 /// Output LLVM module file name.
 cl::opt<std::string> OutputFilename(
     "o", 
-    cl::desc("Specify output filename"),
+    cl::desc("Specify output file name (default stdout)"),
     cl::value_desc("filename"), 
     cl::init("-")
 );
 
-/// Module name to use
-cl::opt<std::string> ModuleName(
-    "m", 
-    cl::desc("Module name override"),
+/// Output block list file namee
+cl::opt<std::string> BlockListName(
+    "b", 
+    cl::desc("Block list filename (default stderr)"),
+    cl::value_desc("filename"), 
+    cl::init("-")
+);
+
+/// Include list file name
+cl::opt<std::string> IncludeFilename(
+    "i", 
+    cl::desc("Include list file name (default none)"),
+    cl::value_desc("filename"), 
     cl::init("")
 );
 
-/// Use numbers instead of function names
-cl::opt<bool> NumbersForFunctions(
-    "n", 
-    cl::desc("Use numbers instead of function names"),
-    cl::init(false)
-);
+/// Where to write the blocks
+static std::ostream* Blocks = nullptr;
+/// Next block id
+static unsigned NextBBID = 0;
 
-
+/// Includes
+static std::unordered_set<std::string> Includes;
 
 namespace llvm {
     // The INITIALIZE_PASS_XXX macros put the initialiser in the llvm namespace.
@@ -85,26 +95,26 @@ public:
         auto &M = *F.getParent();
         auto &C = M.getContext();
 
+        auto FID = M.getName() + ":" + F.getName();
+
+        // See if this function is included
+        if (IncludeFilename != "") {
+            if (Includes.find(FID.str()) == Includes.end()) {
+                return false;
+            }
+        }
+
         // Get __dumb_trace(const char* msg, unsigned bb)
         auto *VoidTy = Type::getVoidTy(C);
-        auto *CharPtrTy = Type::getInt8PtrTy(C);
         auto *UnsignedTy = Type::getInt32Ty(C);
         static constexpr const char *Symbol__dumb_trace = "__dumb_trace";
-        auto DumbTrace = M.getOrInsertFunction(Symbol__dumb_trace, VoidTy, CharPtrTy, UnsignedTy);
-
-        // Add a global for the function id
-        auto MID = (ModuleName != "" ? ModuleName : M.getName());
-        auto FID = MID + ":" + (NumbersForFunctions ? std::to_string(fid) : F.getName());
-        auto *IntTy = Type::getInt32Ty(C);
-        auto *Zero = ConstantInt::getSigned(IntTy, 0);
-        auto *FIDData = ConstantDataArray::getString(C, FID.str(), true);
-        auto *FIDGlobal = new GlobalVariable(M, FIDData->getType(), true, GlobalValue::PrivateLinkage, FIDData);
-        auto *FIDAccess = ConstantExpr::getInBoundsGetElementPtr(FIDData->getType(), FIDGlobal, ArrayRef<Constant*>({Zero, Zero}));
+        auto DumbTrace = M.getOrInsertFunction(Symbol__dumb_trace, VoidTy, UnsignedTy);
         
-        unsigned bbid = 0;
         for (auto &BB: F) {
+            // Write out the block
+            *Blocks << FID.str() << ":" << NextBBID << std::endl;
             IRBuilder<> Builder(&BB, BB.getFirstInsertionPt());
-            Builder.CreateCall(DumbTrace, {FIDAccess, ConstantInt::get(UnsignedTy, bbid++, true)});
+            Builder.CreateCall(DumbTrace, {ConstantInt::get(UnsignedTy, NextBBID++, true)});
         }
 
         return true;
@@ -152,12 +162,45 @@ int main(int argc, char** argv) {
     if (!Module)
         return 1;
 
+    // Load the includes
+    // TODO: errors
+    if (IncludeFilename != "") {
+        std::ifstream IFS(IncludeFilename);
+        std::string Line;
+        while (std::getline(IFS, Line)) {
+            Includes.insert(Line);
+        }
+    }
+
+    // Load the block list, if not stderr
+    // Init the blockId to the number of blocks already written
+    // TODO: errors
+    if (BlockListName != "-") {
+        std::ifstream IFS(BlockListName);
+        std::string Line;
+        while (std::getline(IFS, Line)) {
+            NextBBID++;
+        }        
+    }
+    // Set up the blocks output file
+    if (BlockListName != "-") {
+        Blocks = new std::ofstream(BlockListName, std::ios_base::app);
+    } else {
+        Blocks = &std::cerr;
+    }
+
     // Run the pass
     initializeDumbInstrumentPass(*PassRegistry::getPassRegistry());
     legacy::PassManager PM;
     DumbInstrument* Instrument = new DumbInstrument();
     PM.add(Instrument);
     PM.run(*Module);
+
+    // Close the block stream
+    if (BlockListName != "-") {
+        dynamic_cast<std::ofstream*>(Blocks)->close();
+        delete Blocks;
+    }       
 
     if (verifyModule(*Module, &errs()))
       return 1;

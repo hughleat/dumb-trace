@@ -7,7 +7,7 @@ foo.ll: foo.c
 	clang -S -emit-llvm -O0 -g0 foo.c
 
 foo-instr.bc: foo.bc
-	../build/dumb-instrument foo.bc -o foo-instr.bc
+	../build/dumb-instrument foo.bc -o foo-instr.bc -b blocks.txt -i includes
 
 foo-instr.ll: foo.ll
 	../build/dumb-instrument foo.ll -o foo-instr.ll
@@ -20,6 +20,10 @@ foo-hist: foo-instr.bc
 	
 
 test: foo-trace foo-hist
+	echo Blocks
+	cat blocks.txt
+	echo 
+	
 	echo Trace
 	DUMB_TRACE_PATH=foo-trace.txt ./foo-trace
 	cat foo-trace.txt
@@ -30,4 +34,4 @@ test: foo-trace foo-hist
 	cat foo-hist.txt
 
 clean:
-	rm -rf *.bc *.ll foo-*
+	rm -rf *.bc *.ll *.txt foo-*

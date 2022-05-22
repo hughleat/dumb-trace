@@ -5,7 +5,7 @@
 #include <string>
 
 FILE* out_file = nullptr;
-static std::map<const std::string, unsigned> hist;
+static std::map<unsigned, unsigned> hist;
 
 __attribute__((constructor))
 static void open_hist() {
@@ -21,7 +21,7 @@ __attribute__((destructor))
 static void close_hist() {
     if (out_file) {
         for (const auto &p: hist) {
-            fprintf(out_file, "%s=%u\n", p.first.c_str(), p.second);
+            fprintf(out_file, "%u=%u\n", p.first, p.second);
         }
     }
     if (out_file && out_file != stdout) {
@@ -31,7 +31,6 @@ static void close_hist() {
 }
 
 extern "C"
-void __dumb_trace(const char* fid, unsigned bbid) {
-    std::string key = fid + std::string(":") + std::to_string(bbid);
-    hist[key]++;
+void __dumb_trace(unsigned bbid) {
+    hist[bbid]++;
 }

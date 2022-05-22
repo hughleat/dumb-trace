@@ -6,6 +6,7 @@ FILE* out_file = nullptr;
 
 __attribute__((constructor))
 static void open_trace() {
+    // Get the file to write to
     const char* out_file_path = getenv("DUMB_TRACE_PATH");
     if (out_file_path) {
         out_file = fopen(out_file_path, "a");
@@ -23,8 +24,8 @@ static void close_trace() {
 }
 
 extern "C"
-void __dumb_trace(const char* fid, unsigned bbid) {
+void __dumb_trace(unsigned bbid) {
     if (out_file) {
-        fprintf(out_file, "%s:%u\n", fid, bbid);
+        fprintf(out_file, "%u\n", bbid);
     }
 }
