@@ -95,11 +95,11 @@ public:
         auto &M = *F.getParent();
         auto &C = M.getContext();
 
-        auto FID = M.getName() + ":" + F.getName();
+        std::string FID = M.getName().str() + ":" + F.getName().str();
 
         // See if this function is included
         if (IncludeFilename != "") {
-            if (Includes.find(FID.str()) == Includes.end()) {
+            if (Includes.find(FID) == Includes.end()) {
                 return false;
             }
         }
@@ -112,7 +112,7 @@ public:
         
         for (auto &BB: F) {
             // Write out the block
-            *Blocks << FID.str() << ":" << NextBBID << std::endl;
+            *Blocks << FID << ":" << NextBBID << std::endl;
             IRBuilder<> Builder(&BB, BB.getFirstInsertionPt());
             Builder.CreateCall(DumbTrace, {ConstantInt::get(UnsignedTy, NextBBID++, true)});
         }
