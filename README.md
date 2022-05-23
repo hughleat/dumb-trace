@@ -9,6 +9,7 @@ Good tracers don't instrument every block, this does. Good tracers don't write s
 - `mkdir build`
 - `cd build`
 - `cmake ..`
+- `make`
 
 This should build:
 
