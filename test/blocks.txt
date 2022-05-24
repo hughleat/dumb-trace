@@ -1,9 +1,0 @@
-foo.bc:f:0
-foo.bc:main:1
-foo.bc:main:2
-foo.bc:main:3
-foo.bc:main:4
-foo.bc:main:5
-foo.bc:main:6
-foo.bc:main:7
-foo.bc:main:8

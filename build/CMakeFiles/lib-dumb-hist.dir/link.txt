@@ -1,2 +1,0 @@
-/Library/Developer/CommandLineTools/usr/bin/ar qc liblib-dumb-hist.a CMakeFiles/lib-dumb-hist.dir/src/lib-dumb-hist.cpp.o
-/Library/Developer/CommandLineTools/usr/bin/ranlib liblib-dumb-hist.a
