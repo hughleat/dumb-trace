@@ -1,35 +1,22 @@
 #include <iostream>
 #include <fstream>
-#include <algorithm>
-#include <vector>
 #include <string>
-#include <unordered_map>
 #include <unordered_set>
 
-#include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Function.h"
+#include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
-#include "llvm/Pass.h"
-#include "llvm/InitializePasses.h"
+#include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/SystemUtils.h"
 #include "llvm/Support/ToolOutputFile.h"
 
 using namespace llvm;
 
 /// Input LLVM module file name.
-cl::opt<std::string> InputFilename(
+static cl::opt<std::string> InputFilename(
     cl::Positional, 
     cl::desc("Specify input file name"),
     cl::value_desc("filename"), 
@@ -37,7 +24,7 @@ cl::opt<std::string> InputFilename(
 );
     
 /// Output LLVM module file name.
-cl::opt<std::string> OutputFilename(
+static cl::opt<std::string> OutputFilename(
     "o", 
     cl::desc("Specify output file name (default stdout)"),
     cl::value_desc("filename"), 
@@ -45,7 +32,7 @@ cl::opt<std::string> OutputFilename(
 );
 
 /// Output block list file namee
-cl::opt<std::string> BlockListName(
+static cl::opt<std::string> BlockListName(
     "b", 
     cl::desc("Block list filename (default stderr)"),
     cl::value_desc("filename"), 
@@ -53,11 +40,37 @@ cl::opt<std::string> BlockListName(
 );
 
 /// Include list file name
-cl::opt<std::string> IncludeFilename(
+static cl::opt<std::string> IncludeFilename(
     "i", 
     cl::desc("Include list file name (default none)"),
     cl::value_desc("filename"), 
     cl::init("")
+);
+
+/// Options to control output
+static cl::opt<bool> Force(
+    "f", 
+    cl::desc("Enable binary output on terminals")
+);
+
+static cl::opt<bool> OutputAssembly(
+    "S", 
+    cl::desc("Write output as LLVM assembly"), 
+    cl::Hidden
+);
+
+static cl::opt<bool> PreserveBitcodeUseListOrder(
+    "preserve-bc-uselistorder", 
+    cl::desc("Preserve use-list order when writing LLVM bitcode."), 
+    cl::init(true), 
+    cl::Hidden
+);
+
+static cl::opt<bool> PreserveAssemblyUseListOrder(
+    "preserve-ll-uselistorder", 
+    cl::desc("Preserve use-list order when writing LLVM assembly."), 
+    cl::init(false), 
+    cl::Hidden
 );
 
 /// Where to write the blocks
@@ -194,6 +207,12 @@ int main(int argc, char** argv) {
     legacy::PassManager PM;
     DumbInstrument* Instrument = new DumbInstrument();
     PM.add(Instrument);
+
+    if (OutputAssembly) {
+      PM.add(createPrintModulePass(Out.os(), "", PreserveAssemblyUseListOrder));
+    } else if (Force || !CheckBitcodeOutputToConsole(Out.os())) {
+      PM.add(createBitcodeWriterPass(Out.os(), PreserveBitcodeUseListOrder));
+    }
     PM.run(*Module);
 
     // Close the block stream
@@ -202,11 +221,8 @@ int main(int argc, char** argv) {
         delete Blocks;
     }       
 
-    if (verifyModule(*Module, &errs()))
-      return 1;
-
-    Module->print(Out.os(), nullptr, false);
-
     Out.keep();
+    
+    if (verifyModule(*Module, &errs())) return 1;
     return 0;
 }

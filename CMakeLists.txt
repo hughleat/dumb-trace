@@ -17,7 +17,7 @@ add_definitions(${LLVM_DEFINITIONS_LIST})
 add_executable(dumb-instrument 
     src/dumb-instrument.cpp 
 )
-llvm_map_components_to_libnames(llvm_libs support core irreader)
+llvm_map_components_to_libnames(llvm_libs support core irreader ipo)
 target_link_libraries(dumb-instrument ${llvm_libs})
 
 # The libdumb-trace.a
